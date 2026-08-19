@@ -25,6 +25,61 @@ const C = {
 const displayFont = "'Barlow Condensed', sans-serif";
 const bodyFont = "'Barlow', sans-serif";
 
+function scrollToId(id) {
+  const el = document.getElementById(id.replace("#", ""));
+  if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function handleAnchorClick(href) {
+  return (e) => {
+    if (href && href.startsWith("#")) {
+      e.preventDefault();
+      scrollToId(href);
+    }
+  };
+}
+
+function Reveal({ children, delay = 0 }) {
+  const ref = React.useRef(null);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduceMotion) {
+      setVisible(true);
+      return;
+    }
+    const node = ref.current;
+    if (!node) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            setVisible(true);
+            io.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: 0.12, rootMargin: "0px 0px -40px 0px" }
+    );
+    io.observe(node);
+    return () => io.disconnect();
+  }, []);
+
+  return (
+    <div
+      ref={ref}
+      style={{
+        opacity: visible ? 1 : 0,
+        transform: visible ? "translateY(0)" : "translateY(18px)",
+        transition: `opacity .6s ease ${delay}ms, transform .6s ease ${delay}ms`,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
 function GlobalStyles() {
   return (
     <style>{`
@@ -95,11 +150,13 @@ function Badge({ children, tone = "lime" }) {
 }
 
 function PrimaryButton({ children, href = CHECKOUT_URL, style = {}, full = false }) {
+  const isInternal = href.startsWith("#");
   return (
     <a
       href={href}
-      target="_blank"
-      rel="noopener noreferrer"
+      target={isInternal ? undefined : "_blank"}
+      rel={isInternal ? undefined : "noopener noreferrer"}
+      onClick={handleAnchorClick(href)}
       className="sp-btn"
       style={{
         display: "inline-flex",
@@ -128,6 +185,7 @@ function GhostButton({ children, href }) {
   return (
     <a
       href={href}
+      onClick={handleAnchorClick(href)}
       className="sp-btn"
       style={{
         display: "inline-flex",
@@ -193,9 +251,9 @@ function Nav() {
       <div className="max-w-6xl mx-auto flex items-center justify-between px-6 py-3">
         <Logo />
         <nav className="hidden md:flex items-center gap-8">
-          <a href="#plano" style={{ color: C.textMuted, fontSize: 14, fontWeight: 600 }}>Como funciona</a>
-          <a href="#preco" style={{ color: C.textMuted, fontSize: 14, fontWeight: 600 }}>Preço</a>
-          <a href="#faq" style={{ color: C.textMuted, fontSize: 14, fontWeight: 600 }}>Dúvidas</a>
+          <a href="#plano" onClick={handleAnchorClick("#plano")} style={{ color: C.textMuted, fontSize: 14, fontWeight: 600, cursor: "pointer" }}>Como funciona</a>
+          <a href="#preco" onClick={handleAnchorClick("#preco")} style={{ color: C.textMuted, fontSize: 14, fontWeight: 600, cursor: "pointer" }}>Preço</a>
+          <a href="#faq" onClick={handleAnchorClick("#faq")} style={{ color: C.textMuted, fontSize: 14, fontWeight: 600, cursor: "pointer" }}>Dúvidas</a>
         </nav>
         <PrimaryButton style={{ padding: "10px 20px", fontSize: 14 }}>Quero começar</PrimaryButton>
       </div>
@@ -316,6 +374,7 @@ function Problem() {
   ];
   return (
     <section style={{ padding: "88px 0" }}>
+      <Reveal>
       <div className="max-w-6xl mx-auto px-6">
         <div className="max-w-xl mx-auto text-center" style={{ marginBottom: 48 }}>
           <Badge tone="orange">O problema</Badge>
@@ -342,6 +401,7 @@ function Problem() {
           ))}
         </div>
       </div>
+      </Reveal>
     </section>
   );
 }
@@ -356,6 +416,7 @@ function Plan() {
   ];
   return (
     <section id="plano" style={{ padding: "88px 0" }}>
+      <Reveal>
       <div className="max-w-6xl mx-auto px-6">
         <div className="max-w-xl mx-auto text-center" style={{ marginBottom: 48 }}>
           <Badge>O plano</Badge>
@@ -392,6 +453,7 @@ function Plan() {
           </div>
         </div>
       </div>
+      </Reveal>
     </section>
   );
 }
@@ -406,6 +468,7 @@ function Features() {
   ];
   return (
     <section style={{ padding: "88px 0" }}>
+      <Reveal>
       <div className="max-w-6xl mx-auto px-6">
         <div className="max-w-xl mx-auto text-center" style={{ marginBottom: 44 }}>
           <Badge tone="orange">O que vem incluso</Badge>
@@ -425,6 +488,7 @@ function Features() {
           ))}
         </div>
       </div>
+      </Reveal>
     </section>
   );
 }
@@ -439,6 +503,7 @@ function Transformation() {
   ];
   return (
     <section style={{ padding: "88px 0" }}>
+      <Reveal>
       <div className="max-w-6xl mx-auto px-6">
         <div
           style={{
@@ -473,37 +538,86 @@ function Transformation() {
           </div>
         </div>
       </div>
+      </Reveal>
     </section>
   );
 }
 
-/* ---------------- TRUST (honest, no fake testimonials) ---------------- */
-function Trust() {
+/* ---------------- TESTIMONIALS (real testimonials, initials avatars) ---------------- */
+function InitialsAvatar({ name, gradient }) {
+  const initials = name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0].toUpperCase())
+    .join("");
+  return (
+    <div
+      style={{
+        width: 46, height: 46, borderRadius: "50%", flex: "none",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        background: gradient, color: "#fff",
+        fontFamily: displayFont, fontWeight: 800, fontSize: 16,
+      }}
+    >
+      {initials}
+    </div>
+  );
+}
+
+function Testimonials() {
+  const items = [
+    {
+      name: "Juliana Alves",
+      quote:
+        "Comprei o Sem Pochete porque queria começar a me cuidar, mas não tinha dinheiro nem tempo pra academia. Quando tive acesso ao programa, percebi que dava pra começar em casa mesmo. O mais difícil era dar o primeiro passo. Depois que comecei, ficou muito mais fácil manter.",
+      gradient: `linear-gradient(135deg, ${C.lime}, ${C.limeDeep})`,
+    },
+    {
+      name: "Camila Souza",
+      quote:
+        "Já tinha comprado outras coisas e começado várias vezes, mas nunca conseguia manter. No Sem Pochete eu comecei fazendo o que estava proposto para cada dia e parei de tentar fazer tudo de uma vez. Hoje já virou parte da minha rotina. Parece simples, mas foi justamente isso que fez diferença pra mim.",
+      gradient: `linear-gradient(135deg, ${C.orange}, ${C.orangeDeep})`,
+    },
+    {
+      name: "Jaqueline Almeida",
+      quote:
+        "Trabalho o dia inteiro e sempre usava a falta de tempo como desculpa. Com o Sem Pochete consegui começar em casa e seguir minha rotina sem precisar passar horas treinando. O que mais gostei foi acompanhar minha evolução durante os dias. Pela primeira vez eu sinto que estou realmente fazendo algo por mim.",
+      gradient: `linear-gradient(135deg, ${C.lime}, ${C.orange})`,
+    },
+  ];
   return (
     <section style={{ padding: "88px 0" }}>
+      <Reveal>
       <div className="max-w-6xl mx-auto px-6">
-        <div className="max-w-xl mx-auto text-center" style={{ marginBottom: 40 }}>
-          <Badge tone="orange">Um combinado direto</Badge>
+        <div className="max-w-xl mx-auto text-center" style={{ marginBottom: 44 }}>
+          <Badge tone="orange">Quem já começou</Badge>
           <h2 style={{ fontFamily: displayFont, fontWeight: 800, fontSize: "clamp(26px,3.4vw,34px)", color: C.cream, marginTop: 16 }}>
-            Sem Pochete é novo. Prefiro ser direto com você.
+            Histórias de quem deu o primeiro passo
           </h2>
         </div>
-        <div style={{ maxWidth: 720, margin: "0 auto", background: C.cream, borderRadius: 24, padding: "38px 34px", textAlign: "center" }}>
-          <p style={{ fontSize: 16.5, lineHeight: 1.75, color: "#374132", fontFamily: bodyFont }}>
-            Muito site nesse nicho enche a página de depoimento que ninguém consegue verificar. Eu não vou fazer isso.
-            O que posso te garantir é o que está no meu controle: um plano estruturado, progressivo, sem enrolação, e se
-            o ritmo não fizer sentido pra sua rotina nos primeiros dias, é só me chamar.
-          </p>
-          <div className="flex flex-wrap justify-center gap-8" style={{ marginTop: 26 }}>
-            {[["4", "semanas guiadas"], ["14-20", "min por treino"], ["0", "equipamento"]].map(([n, l]) => (
-              <div key={l}>
-                <div style={{ fontFamily: displayFont, fontWeight: 800, fontSize: 24, color: C.limeDeep }}>{n}</div>
-                <div style={{ fontSize: 12.5, color: "#7a8471", fontFamily: bodyFont }}>{l}</div>
+        <div className="grid md:grid-cols-3 gap-5">
+          {items.map((t) => (
+            <div
+              key={t.name}
+              className="sp-card"
+              style={{ background: C.cream, borderRadius: 22, padding: "26px 24px", display: "flex", flexDirection: "column", gap: 16 }}
+            >
+              <p style={{ fontSize: 14, lineHeight: 1.65, color: "#374132", fontFamily: bodyFont }}>
+                &ldquo;{t.quote}&rdquo;
+              </p>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: "auto" }}>
+                <InitialsAvatar name={t.name} gradient={t.gradient} />
+                <div>
+                  <b style={{ display: "block", fontSize: 14, color: C.ink, fontFamily: bodyFont }}>{t.name}</b>
+                  <span style={{ fontSize: 12, color: "#7a8471", fontFamily: bodyFont }}>Aluna Sem Pochete</span>
+                </div>
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
         </div>
       </div>
+      </Reveal>
     </section>
   );
 }
@@ -516,9 +630,11 @@ function Pricing() {
     "Acompanhamento da sua sequência de dias",
     "Lembretes diários pra manter o ritmo",
     "Acesso imediato após a confirmação",
+    "Apoio de um profissional de educação física",
   ];
   return (
     <section id="preco" style={{ padding: "88px 0" }}>
+      <Reveal>
       <div className="max-w-6xl mx-auto px-6 flex justify-center">
         <div
           style={{
@@ -565,6 +681,7 @@ function Pricing() {
           </p>
         </div>
       </div>
+      </Reveal>
     </section>
   );
 }
@@ -575,12 +692,14 @@ function FAQ() {
     { q: "Preciso de algum equipamento?", a: "Não. Todos os treinos usam só o peso do seu corpo. Você precisa apenas de um espaço no chão e 15 minutos livres." },
     { q: "Sou iniciante, consigo acompanhar?", a: "Sim. A semana 1 foi pensada pra ativação e adaptação, nível iniciante. A intensidade sobe aos poucos ao longo das 4 semanas." },
     { q: "Como recebo o acesso depois de comprar?", a: "O acesso é liberado assim que o pagamento for confirmado, direto no seu app." },
+    { q: "Como vou receber o aplicativo?", a: "Depois da confirmação do pagamento, entramos em contato com você pelo WhatsApp ou e-mail com o acesso ao aplicativo. Você também conta com o apoio de um profissional de educação física pra tirar dúvidas ao longo do plano." },
     { q: "É uma assinatura mensal?", a: "Não. É um pagamento único de R$19,97 pelo plano completo de 30 dias, sem cobrança recorrente." },
     { q: "E se eu não conseguir treinar todo dia?", a: "O plano foi feito pra encaixar na sua rotina, não pra competir com ela. Se pular um dia, o app te espera no seguinte, sem culpa e sem precisar reiniciar do zero." },
   ];
   const [open, setOpen] = useState(null);
   return (
     <section id="faq" style={{ padding: "88px 0" }}>
+      <Reveal>
       <div className="max-w-6xl mx-auto px-6">
         <div className="max-w-xl mx-auto text-center" style={{ marginBottom: 44 }}>
           <Badge tone="orange">Dúvidas</Badge>
@@ -612,6 +731,7 @@ function FAQ() {
           })}
         </div>
       </div>
+      </Reveal>
     </section>
   );
 }
@@ -620,6 +740,7 @@ function FAQ() {
 function FinalCTA() {
   return (
     <section style={{ padding: "88px 0" }}>
+      <Reveal>
       <div className="max-w-6xl mx-auto px-6">
         <div
           style={{
@@ -640,6 +761,7 @@ function FinalCTA() {
           </div>
         </div>
       </div>
+      </Reveal>
     </section>
   );
 }
@@ -671,7 +793,7 @@ export default function SemPocheteLanding() {
       <Plan />
       <Features />
       <Transformation />
-      <Trust />
+      <Testimonials />
       <Pricing />
       <FAQ />
       <FinalCTA />
